@@ -28,6 +28,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
     auto *application = static_cast<Application *>(appstate);
+    return application->update();
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
