@@ -5,7 +5,8 @@ file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # 创建可执行文件
 # executable
-add_executable(first_window ${SOURCES})
+add_executable(first_window ${SOURCES}
+        ../primitives/src/app.cpp)
 
 # Find SDL3 and link
 find_package(SDL3 CONFIG REQUIRED)

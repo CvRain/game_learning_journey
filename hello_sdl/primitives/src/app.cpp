@@ -1,0 +1,36 @@
+#define SDL_MAIN_USE_CALLBACKS 1
+
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#include <iostream>
+#include <memory>
+
+import Application;
+
+SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
+    auto application = std::make_unique<Application>("Hello World", 640, 480);
+    if (not application) {
+        std::cerr << "Failed to create Application instance!" << std::endl;
+        return SDL_APP_FAILURE;
+    }
+    *appstate = application.release();
+    return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
+    auto *application = static_cast<Application *>(appstate);
+    if (event->type == SDL_EVENT_QUIT) {
+        return SDL_APP_SUCCESS;
+    }
+    application->handle_event(event);
+    return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult SDL_AppIterate(void *appstate) {
+    auto *application = static_cast<Application *>(appstate);
+}
+
+void SDL_AppQuit(void *appstate, SDL_AppResult result) {
+    auto *application = static_cast<Application *>(appstate);
+    delete application;
+}
