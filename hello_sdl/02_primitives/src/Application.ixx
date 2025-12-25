@@ -6,7 +6,7 @@ module;
 #include <format>
 #include <string_view>
 
-export module Application;
+export module Primitives.Application;
 
 export class Application {
 public:

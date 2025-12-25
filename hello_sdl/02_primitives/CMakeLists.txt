@@ -17,7 +17,7 @@ target_compile_features(primitives PRIVATE cxx_std_26)
 
 target_sources(primitives
         PRIVATE ${CPP_FILES}
-        PUBLIC FILE_SET CXX_MODULES FILES ${CPP_MODULES}
+        PRIVATE FILE_SET CXX_MODULES FILES ${CPP_MODULES}
 )
 
 # 设置输出目录

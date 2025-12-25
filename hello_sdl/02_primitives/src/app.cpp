@@ -5,7 +5,7 @@
 #include <iostream>
 #include <memory>
 
-import Application;
+import Primitives.Application;
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto application = std::make_unique<Application>("Hello World", 640, 480);
