@@ -71,7 +71,20 @@ auto Application::update() -> SDL_AppResult {
         const auto alpha = static_cast<Uint8>(128 + 127 * SDL_sin(time_offset * 2.0 + point_offset * SDL_PI_D * 2.0));
 
         SDL_SetRenderDrawColor(renderer, red, green, blue, alpha);
-        SDL_RenderPoint(renderer, points[i].x, points[i].y);
+
+        // Draw larger stars using small cross pattern
+        const float x = points[i].x;
+        const float y = points[i].y;
+        const float size = 2.0f;
+
+        // Draw center point
+        SDL_RenderPoint(renderer, x, y);
+        // Draw cross arms
+        SDL_RenderLine(renderer, x - size, y, x + size, y);
+        SDL_RenderLine(renderer, x, y - size, x, y + size);
+        // Add diagonal lines for sparkle effect
+        SDL_RenderLine(renderer, x - size * 0.7f, y - size * 0.7f, x + size * 0.7f, y + size * 0.7f);
+        SDL_RenderLine(renderer, x - size * 0.7f, y + size * 0.7f, x + size * 0.7f, y - size * 0.7f);
     }
 
     // Draw Christmas Tree
