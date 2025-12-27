@@ -63,7 +63,7 @@ Application::Application(const std::string_view &title, const int width, const i
         throw std::runtime_error(result);
     }
 
-    SDL_SetRenderLogicalPresentation(renderer, width, height, SDL_LOGICAL_PRESENTATION_STRETCH);
+    SDL_SetRenderLogicalPresentation(renderer, width, height, SDL_LOGICAL_PRESENTATION_LETTERBOX);
 
     points.resize(num_points);
     point_speeds.resize(num_points);

@@ -3,3 +3,4 @@
 build/
 cmake-build-debug/
 out/
+vcpkg_installed/
