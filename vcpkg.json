@@ -1,5 +1,15 @@
 {
   "name": "game-learning-journey",
   "version": "0.1.0",
-  "dependencies": ["sdl3"]
+  "dependencies": [
+    "entt",
+    "sdl3",
+    {
+      "name": "sdl3-image",
+      "features": [
+        "png",
+        "jpeg"
+      ]
+    }
+  ]
 }
