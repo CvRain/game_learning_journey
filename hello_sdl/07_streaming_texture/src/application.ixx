@@ -1,5 +1,6 @@
 module;
 #include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 #include <stdexcept>
 #include <string_view>
 
@@ -21,6 +22,10 @@ private:
     SDL_Window *window = nullptr;
     SDL_Renderer *renderer = nullptr;
     SDL_Texture *texture = nullptr;
+
+    SDL_Texture *img = nullptr;
+    int img_width = 0;
+    int img_height = 0;
 };
 
 
@@ -43,6 +48,22 @@ Application::Application(std::string_view title, int width, int height) :
         SDL_Log("Could not create texture: %s", SDL_GetError());
         throw std::runtime_error("Could not create texture");
     }
+
+    const std::string image_path = "./res/sample.png";
+    SDL_Surface *image_surface = IMG_Load(image_path.data());
+    if (!image_surface) {
+        SDL_Log("Could not load image %s: %s", image_path.data(), SDL_GetError());
+        return;
+    }
+    img = SDL_CreateTextureFromSurface(renderer, image_surface);
+    if (!img) {
+        SDL_Log("Could not create texture: %s", SDL_GetError());
+        SDL_DestroySurface(image_surface);
+        return;
+    }
+    img_width = image_surface->w;
+    img_height = image_surface->h;
+    SDL_DestroySurface(image_surface);
 }
 
 Application::~Application() {
@@ -76,6 +97,13 @@ SDL_AppResult Application::handle_iteration() {
 
     SDL_RenderClear(renderer);
 
+    const SDL_FRect rect{.x = 0,
+                   .y = 0,
+                   .w = static_cast<float>(window_width) * 1.0f,
+                   .h = static_cast<float>(window_height) * 1.0f};
+    SDL_RenderTexture(renderer, img, nullptr, &rect);
+
+
     const auto ticks = SDL_GetTicks();
     const auto direction = ((ticks % 2000) >= 1000) ? 1.0f : -1.0f;
     const auto scale = (static_cast<float>(static_cast<int>(ticks % 1000) - 500) / 500.0f) * direction;
@@ -84,7 +112,7 @@ SDL_AppResult Application::handle_iteration() {
     if (SDL_LockTextureToSurface(texture, nullptr, &surface)) {
         SDL_Rect rect;
         SDL_FillSurfaceRect(surface, nullptr, SDL_MapRGB(SDL_GetPixelFormatDetails(surface->format), nullptr, 0, 0, 0));
-        rect.w = 150.0f;
+        rect.w = window_width;
         rect.h = 15;
         rect.x = 0;
         rect.y = static_cast<int>(static_cast<float>(window_width - rect.h) * ((scale + 1.0f) / 2.0f));
@@ -97,7 +125,7 @@ SDL_AppResult Application::handle_iteration() {
     SDL_FRect dst_rect;
     dst_rect.x = static_cast<float>(window_width - 150) / 2.0f;
     dst_rect.y = static_cast<float>(window_height - 150) / 2.0f;
-    dst_rect.w = dst_rect.h = 150.0f;
+    dst_rect.w = dst_rect.h = window_height / 2.0f;
     SDL_RenderTexture(renderer, texture, nullptr, &dst_rect);
 
     SDL_RenderPresent(renderer);

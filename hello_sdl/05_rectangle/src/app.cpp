@@ -6,13 +6,13 @@
 
 import SomeRectangle.Application;
 
-SDL_AppResult SDL_AppInit(void **app_state, int argc, char **argv) {
+SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto apple = std::make_unique<Application>("Some Rectangle", 800, 600);
     if (not apple) {
         SDL_Log("Failed to create Application instance!");
         return SDL_APP_FAILURE;
     }
-    *app_state = apple.release();
+    *appstate = apple.release();
     return SDL_APP_CONTINUE;
 }
 
@@ -32,7 +32,7 @@ SDL_AppResult SDL_AppIterate(void *app_state) {
     return SDL_APP_CONTINUE;
 }
 
-void SDL_AppQuit(void *app_state, SDL_AppResult result) {
-    const auto *application = static_cast<Application *>(app_state);
+void SDL_AppQuit(void *appstate, SDL_AppResult result) {
+    const auto *application = static_cast<Application *>(appstate);
     delete application;
 }
