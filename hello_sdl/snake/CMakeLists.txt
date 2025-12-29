@@ -4,6 +4,7 @@ set(CPP_FILES
 
 set(CPP_MODULES
         src/application.ixx
+        src/snake.ixx
 )
 
 add_executable(snake
@@ -13,9 +14,10 @@ add_executable(snake
 # Find SDL3 and link
 find_package(SDL3 CONFIG REQUIRED)
 find_package(SDL3_image CONFIG REQUIRED)
+find_package(EnTT CONFIG REQUIRED)
 
 target_link_libraries(snake PRIVATE
-        SDL3::SDL3
+        SDL3::SDL3 EnTT::EnTT
         $<IF:$<TARGET_EXISTS:SDL3_image::SDL3_image-shared>,SDL3_image::SDL3_image-shared,SDL3_image::SDL3_image-static>)
 
 target_compile_features(snake PRIVATE cxx_std_26)
