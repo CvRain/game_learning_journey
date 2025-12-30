@@ -13,7 +13,7 @@ export constexpr int MAX_PLAYER_COUNT = 4;
 export constexpr int CIRCLE_DRAW_SIDES = 32;
 export constexpr int CIRCLE_DRAW_SIDES_LEN = (CIRCLE_DRAW_SIDES + 1);
 
-export using Player = struct {
+export struct Player {
     SDL_MouseID mouse;
     SDL_KeyboardID keyboard;
     std::array<double, 3> pos;

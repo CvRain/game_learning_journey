@@ -9,6 +9,7 @@ set(CPP_MODULES
 
 add_executable(woodeneye
         ${CPP_FILES}
+        ${CPP_MODULES}
 )
 
 # Find SDL3 and link

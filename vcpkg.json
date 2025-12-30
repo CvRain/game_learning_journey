@@ -7,9 +7,10 @@
     {
       "name": "sdl3-image",
       "features": [
-        "png",
-        "jpeg"
+        "jpeg",
+        "png"
       ]
-    }
+    },
+    "glad"
   ]
 }

@@ -4,8 +4,9 @@ module;
 #include <format>
 #include <string_view>
 
-import snake;
 export module snake.application;
+
+import snake;
 
 export class Application {
 public:

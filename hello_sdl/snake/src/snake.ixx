@@ -3,21 +3,20 @@ module;
 #include <entt/entt.hpp>
 
 export module snake;
-
-export using Position = struct {
+export struct Position {
     int x;
     int y;
 };
 
-export using SnakeSegment = struct {
+export struct SnakeSegment {
     int age;
 };
 
-export using Food = struct {};
+export struct Food {};
 
-export using Direction = struct {
+export struct Direction {
     int dx;
     int dy;
 };
 
-export using SnakeHead = struct {};
+export struct SnakeHead {};
