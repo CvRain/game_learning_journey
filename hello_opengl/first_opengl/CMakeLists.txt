@@ -6,6 +6,7 @@ set(CPP_FILES
 
 set(CPP_MODULES
         src/application.ixx
+        src/file_operation.ixx
 )
 
 add_executable(${SUBPROJECT_NAME}
