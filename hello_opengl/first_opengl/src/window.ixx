@@ -1,146 +1,154 @@
 module;
 
 #include <SDL3/SDL.h>
-#include <glad/glad.h>
-#include <string>
-#include <string_view>
 #include <format>
+#include <glad/glad.h>
 #include <stdexcept>
+#include <string_view>
+#include <vector>
 
 export module first_opengl.window;
 
-/**
- * Window 类 - 管理 SDL 窗口和 OpenGL 上下文
- * 使用 RAII 管理窗口资源
- */
-export class Window {
-public:
-    /**
-     * 创建窗口
-     * @param title 窗口标题
-     * @param width 窗口宽度
-     * @param height 窗口高度
-     */
-    Window(std::string_view title, int width, int height);
+import first_opengl.file_operation;
 
-    ~Window();
+export namespace first_opengl {
+    class Window {
+    public:
+        explicit Window(const std::string_view &title, int width, int height);
+        ~Window();
+        auto handle_event(SDL_Event *event) -> SDL_AppResult;
+        auto handle_iterate() -> SDL_AppResult;
 
-    // 禁止拷贝和移动
-    Window(const Window &) = delete;
-    Window &operator=(const Window &) = delete;
-    Window(Window &&) = delete;
-    Window &operator=(Window &&) = delete;
+    private:
+        const std::string_view window_title;
+        const int window_width;
+        const int window_height;
 
-    /**
-     * 交换前后缓冲区
-     */
-    void swap_buffers() const;
+        SDL_Window *window = nullptr;
+        SDL_GLContext gl_context = nullptr;
 
-    /**
-     * 获取窗口尺寸
-     */
-    [[nodiscard]] auto get_size() const -> std::pair<int, int>;
+        std::vector<float> vertices = {
+            // 第一个三角形
+            0.5f, 0.5f, 0.0f,   // 右上角
+            0.5f, -0.5f, 0.0f,  // 右下角
+            -0.5f, 0.5f, 0.0f,  // 左上角
+            // 第二个三角形
+            0.5f, -0.5f, 0.0f,  // 右下角
+            -0.5f, -0.5f, 0.0f, // 左下角
+            -0.5f, 0.5f, 0.0f   // 左上角
+        };
 
-    /**
-     * 设置视口大小
-     */
-    void set_viewport(int width, int height) const;
+        GLuint VBO;
+        GLuint VAO;
+        GLuint shader_program;
+    };
 
-    /**
-     * 获取 SDL 窗口指针（用于事件处理）
-     */
-    [[nodiscard]] auto get_sdl_window() const -> SDL_Window * {
-        return window;
+    Window::Window(const std::string_view &title, const int width, const int height) :
+        window_title(title), window_width(width), window_height(height) {
+        if (not SDL_Init(SDL_INIT_VIDEO)) {
+            const auto result = std::format("SDL_Init Error: {}", SDL_GetError());
+            throw std::runtime_error(result);
+        }
+
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+        window = SDL_CreateWindow(window_title.data(), width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+        if (window == nullptr) {
+            const auto result = std::format("SDL_CreateWindow Error: {}", SDL_GetError());
+            throw std::runtime_error(result);
+        }
+
+        gl_context = SDL_GL_CreateContext(window);
+        if (gl_context == nullptr) {
+            const auto result = std::format("SDL_GL_CreateContext Error: {}", SDL_GetError());
+            throw std::runtime_error(result);
+        }
+
+        if (not gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress))) {
+            throw std::runtime_error("Failed to initialize GLAD");
+        }
+
+        // 设置初始视口大小
+        glViewport(0, 0, width, height);
+
+        SDL_GL_SetSwapInterval(1); // Enable VSync
+
+        shader_program = glCreateProgram();
+
+        const auto vertex_shader = shader_compiler(read_source_code("./res/shader/first_vert.glsl"), GL_VERTEX_SHADER);
+        const auto fragment_shader = shader_compiler(read_source_code("./res/shader/first_frag.glsl"), GL_FRAGMENT_SHADER);
+
+        glAttachShader(shader_program, vertex_shader);
+        glAttachShader(shader_program, fragment_shader);
+
+        glLinkProgram(shader_program);
+
+        glDeleteShader(vertex_shader);
+        glDeleteShader(fragment_shader);
+
+        glGenBuffers(1, &VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+        glGenVertexArrays(1, &VAO);
+        glBindVertexArray(VAO);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
     }
 
-private:
-    SDL_Window *window{nullptr};
-    SDL_GLContext gl_context{nullptr};
-
-    void init_sdl();
-    void create_window(std::string_view title, int width, int height);
-    void create_gl_context();
-    void init_glad();
-};
-
-Window::Window(const std::string_view title, const int width, const int height) {
-    init_sdl();
-    create_window(title, width, height);
-    create_gl_context();
-    init_glad();
-    set_viewport(width, height);
-
-    // 启用 VSync
-    SDL_GL_SetSwapInterval(1);
-}
-
-Window::~Window() {
-    if (gl_context != nullptr) {
+    Window::~Window() {
         SDL_GL_DestroyContext(gl_context);
-    }
-    if (window != nullptr) {
         SDL_DestroyWindow(window);
-    }
-    SDL_Quit();
-}
-
-void Window::swap_buffers() const {
-    SDL_GL_SwapWindow(window);
-}
-
-auto Window::get_size() const -> std::pair<int, int> {
-    int width, height;
-    SDL_GetWindowSize(window, &width, &height);
-    return {width, height};
-}
-
-void Window::set_viewport(const int width, const int height) const {
-    glViewport(0, 0, width, height);
-}
-
-void Window::init_sdl() {
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        throw std::runtime_error(
-            std::format("SDL_Init Error: {}", SDL_GetError())
-        );
+        SDL_Quit();
     }
 
-    // 设置 OpenGL 版本
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    // 启用双缓冲
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-}
-
-void Window::create_window(const std::string_view title, const int width, const int height) {
-    window = SDL_CreateWindow(
-        title.data(),
-        width,
-        height,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE
-    );
-
-    if (window == nullptr) {
-        throw std::runtime_error(
-            std::format("SDL_CreateWindow Error: {}", SDL_GetError())
-        );
+    auto Window::handle_event(SDL_Event *event) -> SDL_AppResult {
+        switch (event->type) {
+            case SDL_EVENT_QUIT:
+                return SDL_APP_SUCCESS;
+            case SDL_EVENT_KEY_DOWN:
+                // 用户按下esc按键，则退出程序
+                if (event->key.scancode == SDL_SCANCODE_ESCAPE) {
+                    return SDL_APP_SUCCESS;
+                }
+                break;
+            case SDL_EVENT_WINDOW_RESIZED:
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+                // 窗口大小改变时，更新OpenGL视口
+                {
+                    int new_width, new_height;
+                    SDL_GetWindowSize(window, &new_width, &new_height);
+                    glViewport(0, 0, new_width, new_height);
+                    SDL_Log("Window resized to %dx%d", new_width, new_height);
+                }
+                break;
+            default:
+                break;
+        }
+        return SDL_APP_CONTINUE;
     }
-}
 
-void Window::create_gl_context() {
-    gl_context = SDL_GL_CreateContext(window);
-    if (gl_context == nullptr) {
-        throw std::runtime_error(
-            std::format("SDL_GL_CreateContext Error: {}", SDL_GetError())
-        );
+    auto Window::handle_iterate() -> SDL_AppResult {
+        // Clear the screen to a solid color
+        glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Draw the triangle
+        glUseProgram(shader_program);
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+
+        // Swap the buffers
+        SDL_GL_SwapWindow(window);
+
+        return SDL_APP_CONTINUE;
     }
-}
 
-void Window::init_glad() {
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(SDL_GL_GetProcAddress))) {
-        throw std::runtime_error("Failed to initialize GLAD");
-    }
-}
 
+} // namespace first_opengl
