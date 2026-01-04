@@ -17,8 +17,11 @@ export namespace first_opengl {
     class Window {
     public:
         explicit Window(const std::string_view &title, int width, int height);
+
         ~Window();
+
         auto handle_event(SDL_Event *event) -> SDL_AppResult;
+
         auto handle_iterate() -> SDL_AppResult;
 
     private:
@@ -29,7 +32,16 @@ export namespace first_opengl {
         SDL_Window *window = nullptr;
         SDL_GLContext gl_context = nullptr;
 
-        std::vector<float> vertices{-0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f};
+        std::vector<float> vertices{
+            // 第一个三角形
+            0.5f, 0.5f, 0.0f, // 右上角
+            0.5f, -0.5f, 0.0f, // 右下角
+            -0.5f, 0.5f, 0.0f, // 左上角
+            // 第二个三角形
+            0.5f, -0.5f, 0.0f, // 右下角
+            -0.5f, -0.5f, 0.0f, // 左下角
+            -0.5f, 0.5f, 0.0f // 左上角
+        };
 
         unsigned int vertex_array;
         unsigned int vertex_buffer;
@@ -40,8 +52,8 @@ export namespace first_opengl {
     };
 
 
-    Window::Window(const std::string_view &title, const int width, const int height) :
-        window_title(title), window_width(width), window_height(height) {
+    Window::Window(const std::string_view &title, const int width, const int height) : window_title(title),
+        window_width(width), window_height(height) {
         window_init();
 
         const auto vertex_shader_path = "./res/shader/first_vert.glsl";
@@ -53,20 +65,34 @@ export namespace first_opengl {
         glAttachShader(shader_program, vertex_shader);
         glAttachShader(shader_program, fragment_shader);
         glLinkProgram(shader_program);
+
+        // 检查程序链接状态
+        GLint success;
+        glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
+        if (!success) {
+            char info_log[512];
+            glGetProgramInfoLog(shader_program, 512, nullptr, info_log);
+            std::string error_message = "Shader program linking failed: ";
+            error_message += info_log;
+            throw std::runtime_error(error_message);
+        }
+
         glDeleteShader(vertex_shader);
         glDeleteShader(fragment_shader);
-        glUseProgram(shader_program);
-
-        glGenBuffers(1, &vertex_buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, nullptr);
-        glEnableVertexAttribArray(0);
 
         glGenVertexArrays(1, &vertex_array);
+        glGenBuffers(1, &vertex_buffer);
+
         glBindVertexArray(vertex_array);
 
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, static_cast<void *>(0));
+        glEnableVertexAttribArray(0);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
     }
 
     Window::~Window() {
@@ -88,13 +114,13 @@ export namespace first_opengl {
             case SDL_EVENT_WINDOW_RESIZED:
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 // 窗口大小改变时，更新OpenGL视口
-                {
-                    int new_width, new_height;
-                    SDL_GetWindowSize(window, &new_width, &new_height);
-                    glViewport(0, 0, new_width, new_height);
-                    SDL_Log("Window resized to %dx%d", new_width, new_height);
-                }
-                break;
+            {
+                int new_width, new_height;
+                SDL_GetWindowSize(window, &new_width, &new_height);
+                glViewport(0, 0, new_width, new_height);
+                SDL_Log("Window resized to %dx%d", new_width, new_height);
+            }
+            break;
             default:
                 break;
         }
@@ -106,16 +132,16 @@ export namespace first_opengl {
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        glUseProgram(shader_program);
         glBindVertexArray(vertex_array);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        glBindVertexArray(0);
-
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         // Swap the buffers
         SDL_GL_SwapWindow(window);
 
         return SDL_APP_CONTINUE;
     }
+
     auto Window::window_init() -> void {
         // SDL_Init returns 0 on success, negative on failure.
         if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -149,6 +175,4 @@ export namespace first_opengl {
 
         SDL_GL_SetSwapInterval(1); // Enable VSyn c
     }
-
-
 } // namespace first_opengl
