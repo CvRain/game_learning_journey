@@ -32,6 +32,7 @@ target_sources(${SUBPROJECT_NAME}
 # Copy resources (only if the res/ folder exists)
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res")
     add_custom_command(TARGET ${SUBPROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E remove_directory $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
             COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
             COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/res
