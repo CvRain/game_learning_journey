@@ -7,6 +7,7 @@ set(CPP_FILES
 set(CPP_MODULES
         src/window.ixx
         src/file_operation.ixx
+        src/shader.ixx
 )
 
 add_executable(${SUBPROJECT_NAME}
