@@ -1,9 +1,12 @@
 #version 330 core
+out vec4 FragColor;
 
-in vec4 vertexColor;
-out vec4 FragColor; // 输出到帧缓冲的最终颜色
+in vec3 ourColor;
+in vec2 TexCoord;
+
+uniform sampler2D ourTexture;
 
 void main()
 {
-    FragColor = vertexColor;
+    FragColor = texture(ourTexture, TexCoord) * vec4(ourColor, 1.0);
 }

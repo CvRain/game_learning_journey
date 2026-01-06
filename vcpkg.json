@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "dependencies": [
     "entt",
+    "glad",
     "sdl3",
     {
       "name": "sdl3-image",
@@ -11,6 +12,6 @@
         "png"
       ]
     },
-    "glad"
+    "stb"
   ]
 }

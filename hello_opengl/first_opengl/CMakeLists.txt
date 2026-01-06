@@ -10,18 +10,27 @@ set(CPP_MODULES
         src/shader.ixx
 )
 
+set(SHADER_FILES
+        res/shader/first_vert.glsl
+        res/shader/first_frag.glsl
+)
+
 add_executable(${SUBPROJECT_NAME}
         ${CPP_FILES}
         ${CPP_MODULES}
+        ${SHADER_FILES}
 )
 
 # Find SDL3 and link
 find_package(SDL3 CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
+find_package(Stb REQUIRED)
 
 target_link_libraries(${SUBPROJECT_NAME} PRIVATE
         SDL3::SDL3 glad::glad)
+
+target_include_directories(${SUBPROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 
 target_compile_features(${SUBPROJECT_NAME} PRIVATE cxx_std_26)
 
@@ -31,16 +40,16 @@ target_sources(${SUBPROJECT_NAME}
 )
 
 # Copy resources (only if the res/ folder exists)
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res")
-    add_custom_command(TARGET ${SUBPROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E remove_directory $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
-            COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/res
-            $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
-            COMMENT "Copying resources"
-    )
-endif ()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/res")
+        add_custom_command(TARGET ${SUBPROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E remove_directory $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
+                COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/res
+                $<TARGET_FILE_DIR:${SUBPROJECT_NAME}>/res
+                COMMENT "Copying resources"
+        )
+endif()
 
 # 设置输出目录
 set_target_properties(${SUBPROJECT_NAME} PROPERTIES

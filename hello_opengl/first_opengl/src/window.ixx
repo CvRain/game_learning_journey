@@ -1,14 +1,16 @@
 module;
+#define STB_IMAGE_IMPLEMENTATION
+
 
 #include <SDL3/SDL.h>
 #include <cmath>
 #include <filesystem>
 #include <format>
 #include <glad/glad.h>
+#include <stb_image.h>
 #include <stdexcept>
 #include <string_view>
 #include <vector>
-
 
 export module first_opengl.window;
 
@@ -39,16 +41,17 @@ export namespace first_opengl {
         unsigned int vertex_array_object{};
         unsigned int vertex_buffer_object{};
         unsigned int element_array_buffer{};
+        unsigned int texture{};
 
         auto window_init() -> void;
 
         // 绘制一个矩形所用的顶点和颜色数据
         const std::vector<float> vertices = {
-                // 位置            // 颜色
-                0.5f,  0.5f,  0.0f, 1.0f, 1.0f, 0.0f, // 右上角
-                0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, // 右下角
-                -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // 左下角
-                -0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 1.0f // 左上角
+                // positions          // colors           // texture coords
+                0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top right
+                0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom right
+                -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom left
+                -0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f // top left
         };
 
         // 绘制矩形所用的索引
@@ -66,6 +69,7 @@ export namespace first_opengl {
         shader_program = std::make_shared<Shader>("./res/shader/first_vert.glsl", "./res/shader/first_frag.glsl");
         shader_program->use();
 
+        // 设置顶点数组对象和顶点缓冲对象
         glGenVertexArrays(1, &vertex_array_object);
         glBindVertexArray(vertex_array_object);
 
@@ -78,17 +82,49 @@ export namespace first_opengl {
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
         // 设置顶点属性指针
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), reinterpret_cast<void *>(0));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<void *>(0));
         glEnableVertexAttribArray(0);
 
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
+
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<void *>(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        // set the texture wrapping parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                        GL_REPEAT); // set texture wrapping to GL_REPEAT (default wrapping method)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // set texture filtering parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // 翻转Y轴，使图片坐标系与OpenGL纹理坐标系一致
+        stbi_set_flip_vertically_on_load(true);
+
+        int image_width, image_height, nr_channels;
+        if (const auto img_data = stbi_load("./res/image/sample.png", &image_width, &image_height, &nr_channels, 0)) {
+            GLenum format = GL_RGB;
+            if (nr_channels == 1)
+                format = GL_RED;
+            else if (nr_channels == 3)
+                format = GL_RGB;
+            else if (nr_channels == 4)
+                format = GL_RGBA;
+
+            glTexImage2D(GL_TEXTURE_2D, 0, format, image_width, image_height, 0, format, GL_UNSIGNED_BYTE, img_data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            stbi_image_free(img_data);
+        }
+        else {
+            stbi_image_free(img_data);
+            throw std::runtime_error("Failed to load texture image");
+        }
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-
-        const auto shape_offset_location = glGetUniformLocation(shader_program->get_id(), "shape_offset");
-        glUniform3f(shape_offset_location, 0.4f, 0.4f, 0.0f);
     }
 
     Window::~Window() {
@@ -128,6 +164,9 @@ export namespace first_opengl {
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        glBindTexture(GL_TEXTURE_2D, texture);
+        shader_program->use();
+
         glBindVertexArray(vertex_array_object);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
 
@@ -140,7 +179,7 @@ export namespace first_opengl {
 
     auto Window::window_init() -> void {
         // SDL_Init returns 0 on success, negative on failure.
-        if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        if (not SDL_Init(SDL_INIT_VIDEO)) {
             const auto result = std::format("SDL_Init Error: {}", SDL_GetError());
             throw std::runtime_error(result);
         }
