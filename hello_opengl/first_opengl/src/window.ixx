@@ -1,7 +1,4 @@
 module;
-#define STB_IMAGE_IMPLEMENTATION
-
-
 #include <SDL3/SDL.h>
 #include <cmath>
 #include <filesystem>
@@ -15,6 +12,7 @@ module;
 export module first_opengl.window;
 
 import first_opengl.shader;
+import first_opengl.file_operation;
 
 export namespace first_opengl {
     class Window {
@@ -41,29 +39,30 @@ export namespace first_opengl {
         unsigned int vertex_array_object{};
         unsigned int vertex_buffer_object{};
         unsigned int element_array_buffer{};
-        unsigned int texture{};
+        unsigned int texture_1{};
+        unsigned int texture_2{};
 
         auto window_init() -> void;
 
         // 绘制一个矩形所用的顶点和颜色数据
         const std::vector<float> vertices = {
-                // positions          // colors           // texture coords
-                0.5f,  0.5f,  0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top right
-                0.5f,  -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom right
-                -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom left
-                -0.5f, 0.5f,  0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f // top left
+            // positions          // colors           // texture coords
+            0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top right
+            0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, // bottom right
+            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom left
+            -0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f // top left
         };
 
         // 绘制矩形所用的索引
         const std::vector<unsigned int> indices = {
-                0, 1, 3, // 第一个三角形
-                1, 2, 3 // 第二个三角形
+            0, 1, 3, // 第一个三角形
+            1, 2, 3 // 第二个三角形
         };
     };
 
 
-    Window::Window(const std::string_view &title, const int width, const int height) :
-        window_title(title), window_width(width), window_height(height) {
+    Window::Window(const std::string_view &title, const int width, const int height) : window_title(title),
+        window_width(width), window_height(height) {
         window_init();
 
         shader_program = std::make_shared<Shader>("./res/shader/first_vert.glsl", "./res/shader/first_frag.glsl");
@@ -91,8 +90,12 @@ export namespace first_opengl {
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), reinterpret_cast<void *>(6 * sizeof(float)));
         glEnableVertexAttribArray(2);
 
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
+        // 翻转Y轴，使图片坐标系与OpenGL纹理坐标系一致
+        stbi_set_flip_vertically_on_load(true);
+
+        glActiveTexture(GL_TEXTURE0);
+        glGenTextures(1, &texture_1);
+        glBindTexture(GL_TEXTURE_2D, texture_1);
         // set the texture wrapping parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
                         GL_REPEAT); // set texture wrapping to GL_REPEAT (default wrapping method)
@@ -101,27 +104,46 @@ export namespace first_opengl {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        // 翻转Y轴，使图片坐标系与OpenGL纹理坐标系一致
-        stbi_set_flip_vertically_on_load(true);
 
-        int image_width, image_height, nr_channels;
-        if (const auto img_data = stbi_load("./res/image/sample.png", &image_width, &image_height, &nr_channels, 0)) {
-            GLenum format = GL_RGB;
-            if (nr_channels == 1)
-                format = GL_RED;
-            else if (nr_channels == 3)
-                format = GL_RGB;
-            else if (nr_channels == 4)
-                format = GL_RGBA;
-
-            glTexImage2D(GL_TEXTURE_2D, 0, format, image_width, image_height, 0, format, GL_UNSIGNED_BYTE, img_data);
+        if (const auto img_data = load_image("./res/image/wall.jpg"); img_data.data != nullptr) {
+            const auto format = get_image_format(img_data);
+            glTexImage2D(GL_TEXTURE_2D, 0, format, img_data.width, img_data.height, 0, format, GL_UNSIGNED_BYTE,
+                         img_data.data);
             glGenerateMipmap(GL_TEXTURE_2D);
-            stbi_image_free(img_data);
+            stbi_image_free(img_data.data);
         }
         else {
-            stbi_image_free(img_data);
+            stbi_image_free(img_data.data);
             throw std::runtime_error("Failed to load texture image");
         }
+
+        glActiveTexture(GL_TEXTURE1);
+        glGenTextures(1, &texture_2);
+        glBindTexture(GL_TEXTURE_2D, texture_2);
+
+        // set the texture wrapping parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                        GL_REPEAT); // set texture wrapping to GL_REPEAT (default wrapping method)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        // set texture filtering parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        if (const auto img_data = load_image("./res/image/sample.png"); img_data.data != nullptr) {
+            const auto format = get_image_format(img_data);
+            glTexImage2D(GL_TEXTURE_2D, 0, format, img_data.width, img_data.height, 0, format, GL_UNSIGNED_BYTE,
+                         img_data.data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            stbi_image_free(img_data.data);
+        }
+        else {
+            stbi_image_free(img_data.data);
+            throw std::runtime_error("Failed to load texture image");
+        }
+
+        shader_program->set_int("ourTexture", 0);
+        shader_program->set_int("texture2", 1);
+
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
@@ -146,13 +168,13 @@ export namespace first_opengl {
             case SDL_EVENT_WINDOW_RESIZED:
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 // 窗口大小改变时，更新OpenGL视口
-                {
-                    int new_width, new_height;
-                    SDL_GetWindowSize(window, &new_width, &new_height);
-                    glViewport(0, 0, new_width, new_height);
-                    SDL_Log("Window resized to %dx%d", new_width, new_height);
-                }
-                break;
+            {
+                int new_width, new_height;
+                SDL_GetWindowSize(window, &new_width, &new_height);
+                glViewport(0, 0, new_width, new_height);
+                SDL_Log("Window resized to %dx%d", new_width, new_height);
+            }
+            break;
             default:
                 break;
         }
@@ -164,7 +186,11 @@ export namespace first_opengl {
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glBindTexture(GL_TEXTURE_2D, texture);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture_1);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texture_2);
         shader_program->use();
 
         glBindVertexArray(vertex_array_object);
