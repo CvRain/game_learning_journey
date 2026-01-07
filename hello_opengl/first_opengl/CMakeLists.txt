@@ -26,9 +26,10 @@ find_package(SDL3 CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(Stb REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 target_link_libraries(${SUBPROJECT_NAME} PRIVATE
-        SDL3::SDL3 glad::glad)
+        SDL3::SDL3 glad::glad glm::glm)
 
 target_include_directories(${SUBPROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 

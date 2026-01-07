@@ -8,6 +8,10 @@ module;
 #include <stdexcept>
 #include <string_view>
 #include <vector>
+#include <random>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 export module first_opengl.window;
 
@@ -41,6 +45,13 @@ export namespace first_opengl {
         unsigned int element_array_buffer{};
         unsigned int texture_1{};
         unsigned int texture_2{};
+
+        // 移动相关的状态变量
+        glm::vec3 position{0.0f, 0.0f, 0.0f};       // 当前位置
+        glm::vec3 velocity{0.0f, 0.0f, 0.0f};       // 当前速度向量
+        float change_dir_timer = 0.0f;              // 改变方向的倒计时
+        float last_frame_time = 0.0f;               //上一帧的时间点
+        std::mt19937 random_engine{std::random_device{}()}; // 随机数生成器
 
         auto window_init() -> void;
 
@@ -144,7 +155,6 @@ export namespace first_opengl {
         shader_program->set_int("ourTexture", 0);
         shader_program->set_int("texture2", 1);
 
-
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
@@ -191,7 +201,58 @@ export namespace first_opengl {
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture_2);
+
+        const auto current_time = static_cast<float>(SDL_GetTicks()) / 1000.0f;
+
+        if (last_frame_time == 0.0f) {
+            last_frame_time = current_time;
+        }
+
+        const float delta_time = current_time - last_frame_time;
+        last_frame_time = current_time;
+
+        // 更新改变方向的计时器
+        change_dir_timer -= delta_time;
+        if (change_dir_timer <= 0.0f) {
+            // 生成随机速度分量 (-0.5 到 0.5)
+            std::uniform_real_distribution<float> dist_vel(-0.5f, 0.5f);
+            // 生成随机持续时间 (0.5秒 到 2.0秒)
+            std::uniform_real_distribution<float> dist_time(0.5f, 2.0f);
+
+            velocity = glm::vec3(dist_vel(random_engine), dist_vel(random_engine), 0.0f);
+            change_dir_timer = dist_time(random_engine);
+        }
+
+        // 更新位置
+        position += velocity * delta_time;
+
+        // 边界检测 (假设边界在 -1.0 到 1.0)
+        // 碰到边界就反转速度
+        if (position.x > 1.0f - 0.25f) { // 简单假设矩形半径0.25
+             position.x = 1.0f - 0.25f;
+             velocity.x = -velocity.x;
+        } else if (position.x < -1.0f + 0.25f) {
+             position.x = -1.0f + 0.25f;
+             velocity.x = -velocity.x;
+        }
+
+        if (position.y > 1.0f - 0.25f) {
+             position.y = 1.0f - 0.25f;
+             velocity.y = -velocity.y;
+        } else if (position.y < -1.0f + 0.25f) {
+             position.y = -1.0f + 0.25f;
+             velocity.y = -velocity.y;
+        }
+
+        auto transform = glm::mat4(1.0f);
+        transform = glm::translate(transform, position);
+        // 让矩形自转，使用 current_time
+        transform = glm::rotate(transform, current_time, glm::vec3(0.0f, 0.0f, 1.0f));
+
+
         shader_program->use();
+        const auto transformLoc = glGetUniformLocation(shader_program->get_id(), "transform");
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
 
         glBindVertexArray(vertex_array_object);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
