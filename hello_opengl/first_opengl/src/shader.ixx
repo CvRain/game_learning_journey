@@ -4,6 +4,9 @@
 module;
 
 #include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <stdexcept>
 #include <string>
 
@@ -20,6 +23,9 @@ public:
     auto set_bool(const std::string &name, bool value) const -> void;
     auto set_int(const std::string &name, int value) const -> void;
     auto set_float(const std::string &name, float value) const -> void;
+    auto set_mat2(const std::string &name, const glm::mat2 &mat) const -> void;
+    auto set_mat3(const std::string &name, const glm::mat3 &mat) const -> void;
+    auto set_mat4(const std::string &name, const glm::mat4 &mat) const -> void;
 
 private:
     unsigned int id{};
@@ -63,4 +69,13 @@ auto Shader::set_int(const std::string &name, const int value) const -> void {
 
 auto Shader::set_float(const std::string &name, const float value) const -> void {
     glUniform1f(glGetUniformLocation(id, name.c_str()), value);
+}
+auto Shader::set_mat2(const std::string &name, const glm::mat2 &mat) const -> void {
+    glUniformMatrix2fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+}
+auto Shader::set_mat3(const std::string &name, const glm::mat3 &mat) const -> void {
+    glUniformMatrix3fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
+}
+auto Shader::set_mat4(const std::string &name, const glm::mat4 &mat) const -> void {
+    glUniformMatrix4fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &mat[0][0]);
 }
