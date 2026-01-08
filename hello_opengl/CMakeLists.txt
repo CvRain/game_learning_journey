@@ -1,1 +1,2 @@
 add_subdirectory(first_opengl)
+add_subdirectory(opengl_sandbox)
