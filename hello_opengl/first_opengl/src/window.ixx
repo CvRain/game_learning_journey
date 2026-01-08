@@ -53,6 +53,14 @@ export namespace first_opengl {
         float last_frame_time = 0.0f; // 上一帧的时间点
         std::mt19937 random_engine{std::random_device{}()}; // 随机数生成器
 
+        glm::vec3 camera_pos{0.0f, 0.0f, 3.0f};
+        glm::vec3 camera_front{0.0f, 0.0f, -1.0f};
+        glm::vec3 camera_up{0.0f, 1.0f, 0.0f};
+
+        float yaw = -90.0f;
+        float pitch = 0.0f;
+        float sensitivity = 0.1f;
+
         auto window_init() -> void;
 
         // 10个立方体位置信息
@@ -173,24 +181,63 @@ export namespace first_opengl {
     }
 
     auto Window::handle_event(SDL_Event *event) -> SDL_AppResult {
+        const auto update_window = [&]() {
+            int new_width, new_height;
+            SDL_GetWindowSize(window, &new_width, &new_height);
+            glViewport(0, 0, new_width, new_height);
+            SDL_Log("Window resized to %dx%d", new_width, new_height);
+        };
+
+        const auto handle_key_down = [&]() {
+            if (event->key.scancode == SDL_SCANCODE_ESCAPE) {
+                return SDL_APP_SUCCESS;
+            }
+            const float camera_speed = 0.1f;
+            if (event->key.scancode == SDL_SCANCODE_W) {
+                camera_pos += camera_front * camera_speed;
+            }
+            if (event->key.scancode == SDL_SCANCODE_A) {
+                camera_pos -= glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+            }
+            if (event->key.scancode == SDL_SCANCODE_S) {
+                camera_pos -= camera_front * camera_speed;
+            }
+            if (event->key.scancode == SDL_SCANCODE_D) {
+                camera_pos += glm::normalize(glm::cross(camera_front, camera_up)) * camera_speed;
+            }
+            return SDL_APP_CONTINUE;
+        };
+
+        const auto handle_mouse_motion = [&]() {
+            float x_offset = event->motion.xrel * sensitivity;
+            float y_offset = -event->motion.yrel * sensitivity; // reversed: y-coordinates go from bottom to top
+
+            yaw += x_offset;
+            pitch += y_offset;
+
+            if (pitch > 89.0f)
+                pitch = 89.0f;
+            if (pitch < -89.0f)
+                pitch = -89.0f;
+
+            glm::vec3 front;
+            front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+            front.y = sin(glm::radians(pitch));
+            front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+            camera_front = glm::normalize(front);
+            return SDL_APP_CONTINUE;
+        };
+
         switch (event->type) {
             case SDL_EVENT_QUIT:
                 return SDL_APP_SUCCESS;
             case SDL_EVENT_KEY_DOWN:
-                // 用户按下esc按键，则退出程序
-                if (event->key.scancode == SDL_SCANCODE_ESCAPE) {
-                    return SDL_APP_SUCCESS;
-                }
-                break;
+                return handle_key_down();
+            case SDL_EVENT_MOUSE_MOTION:
+                return handle_mouse_motion();
             case SDL_EVENT_WINDOW_RESIZED:
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-                // 窗口大小改变时，更新OpenGL视口
-                {
-                    int new_width, new_height;
-                    SDL_GetWindowSize(window, &new_width, &new_height);
-                    glViewport(0, 0, new_width, new_height);
-                    SDL_Log("Window resized to %dx%d", new_width, new_height);
-                }
+                update_window();
                 break;
             default:
                 break;
@@ -215,11 +262,8 @@ export namespace first_opengl {
         auto view = glm::mat4(1.0f);
         auto projection = glm::mat4(1.0f);
 
-        const auto current_ticks = SDL_GetTicks();
-        const auto delta_time = (current_ticks - last_frame_time) / 1000.0f;
+        view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
 
-        // model = glm::rotate(model, delta_time * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
         projection =
                 glm::perspective(glm::radians(45.0f),
                                  static_cast<float>(window_width) / static_cast<float>(window_height), 0.1f, 100.0f);
@@ -233,12 +277,15 @@ export namespace first_opengl {
 
         glBindVertexArray(vertex_array_object);
 
+        const auto current_time = SDL_GetTicks();
+        const auto delta_time = static_cast<float>(current_time) / 1000.0f;
+
         for (unsigned int i = 0; i < 10; i++) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cube_positions[i]);
             float angle = 20.0f * i;
             // 让每个箱子以不同的速度和轴向旋转
-            model = glm::rotate(model, glm::radians(angle) + current_ticks / 1000.0f * glm::radians(50.0f),
+            model = glm::rotate(model, glm::radians(angle) + delta_time * glm::radians(50.0f),
                                 glm::vec3(1.0f, 0.3f, 0.5f));
             glUniformMatrix4fv(model_loc, 1, GL_FALSE, glm::value_ptr(model));
 
@@ -286,6 +333,7 @@ export namespace first_opengl {
         // 设置初始视口大小
         glViewport(0, 0, window_width, window_height);
 
+        SDL_SetWindowRelativeMouseMode(window, true);
         SDL_GL_SetSwapInterval(1); // Enable VSyn c
     }
 } // namespace first_opengl
