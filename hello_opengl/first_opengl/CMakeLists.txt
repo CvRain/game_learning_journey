@@ -8,6 +8,8 @@ set(CPP_MODULES
         src/window.ixx
         src/file_operation.ixx
         src/shader.ixx
+        src/app.ixx
+        src/sandbox.ixx
 )
 
 set(SHADER_FILES

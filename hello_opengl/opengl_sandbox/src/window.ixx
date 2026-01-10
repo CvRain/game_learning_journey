@@ -7,11 +7,11 @@ module;
 #include <string>
 #include <string_view>
 
-export module first_opengl.window;
+export module opengl_sandbox.window;
 
-import first_opengl.app;
+import opengl_sandbox.app;
 
-export namespace first_opengl {
+export namespace opengl_sandbox {
     class Window {
     public:
         explicit Window(const std::string_view &title, int width, int height);
@@ -129,8 +129,7 @@ export namespace first_opengl {
         glEnable(GL_DEPTH_TEST);
         glViewport(0, 0, window_width, window_height);
 
-        // Mouse mode depends on the app, but user had it here.
         SDL_SetWindowRelativeMouseMode(window, true);
         SDL_GL_SetSwapInterval(1);
     }
-} // namespace first_opengl
+} // namespace opengl_sandbox
