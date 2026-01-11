@@ -1,21 +1,11 @@
 module;
-#define STB_IMAGE_IMPLEMENTATION
 #include <filesystem>
 #include <fstream>
 #include <glad/glad.h>
 #include <sstream>
-#include <stb_image.h>
 #include <string_view>
 
-
 export module opengl_sandbox.file_operation;
-
-export struct ImageData {
-    unsigned char *data;
-    int width;
-    int height;
-    int channels;
-};
 
 export namespace opengl_sandbox {
     /**
@@ -52,29 +42,5 @@ export namespace opengl_sandbox {
         }
 
         return shader;
-    }
-
-    auto load_image(const std::string_view &file_path) -> ImageData {
-        // 检查 文件是否存在
-        if (!std::filesystem::exists(file_path)) {
-            throw std::runtime_error("File does not exist: " + std::string(file_path));
-        }
-        ImageData image_data{};
-        image_data.data = stbi_load(file_path.data(), &image_data.width, &image_data.height, &image_data.channels, 0);
-        if (!image_data.data) {
-            throw std::runtime_error("Failed to load image: " + std::string(file_path));
-        }
-        return image_data;
-    }
-
-    auto get_image_format(const ImageData &image_data) -> GLenum {
-        GLenum format = GL_RGB;
-        if (image_data.channels == 1)
-            format = GL_RED;
-        else if (image_data.channels == 3)
-            format = GL_RGB;
-        else if (image_data.channels == 4)
-            format = GL_RGBA;
-        return format;
     }
 } // namespace opengl_sandbox

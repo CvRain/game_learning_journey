@@ -15,6 +15,8 @@ set(CPP_MODULES
 set(SHADER_FILES
         res/shader/first_vert.glsl
         res/shader/first_frag.glsl
+        res/shader/light_shader_cube_vert.glsl
+        res/shader/light_shader_cube_frag.glsl
 )
 
 add_executable(${SUBPROJECT_NAME}
@@ -27,13 +29,10 @@ add_executable(${SUBPROJECT_NAME}
 find_package(SDL3 CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
-find_package(Stb REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
 target_link_libraries(${SUBPROJECT_NAME} PRIVATE
         SDL3::SDL3 glad::glad glm::glm)
-
-target_include_directories(${SUBPROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 
 target_compile_features(${SUBPROJECT_NAME} PRIVATE cxx_std_26)
 

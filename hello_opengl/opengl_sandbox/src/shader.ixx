@@ -23,6 +23,12 @@ public:
     auto set_bool(const std::string &name, bool value) const -> void;
     auto set_int(const std::string &name, int value) const -> void;
     auto set_float(const std::string &name, float value) const -> void;
+    auto set_vec2(const std::string &name, const glm::vec2 &value) const -> void;
+    auto set_vec2(const std::string &name, float x, float y) const -> void;
+    auto set_vec3(const std::string &name, const glm::vec3 &value) const -> void;
+    auto set_vec3(const std::string &name, float x, float y, float z) const -> void;
+    auto set_vec4(const std::string &name, const glm::vec4 &value) const -> void;
+    auto set_vec4(const std::string &name, float x, float y, float z, float w) const -> void;
     auto set_mat2(const std::string &name, const glm::mat2 &mat) const -> void;
     auto set_mat3(const std::string &name, const glm::mat3 &mat) const -> void;
     auto set_mat4(const std::string &name, const glm::mat4 &mat) const -> void;
@@ -69,6 +75,24 @@ auto Shader::set_int(const std::string &name, const int value) const -> void {
 
 auto Shader::set_float(const std::string &name, const float value) const -> void {
     glUniform1f(glGetUniformLocation(id, name.c_str()), value);
+}
+auto Shader::set_vec2(const std::string &name, const glm::vec2 &value) const -> void {
+    glUniform2fv(glGetUniformLocation(id, name.c_str()), 1, &value[0]);
+}
+auto Shader::set_vec2(const std::string &name, float x, float y) const -> void {
+    glUniform2f(glGetUniformLocation(id, name.c_str()), x, y);
+}
+auto Shader::set_vec3(const std::string &name, const glm::vec3 &value) const -> void {
+    glUniform3fv(glGetUniformLocation(id, name.c_str()), 1, &value[0]);
+}
+auto Shader::set_vec3(const std::string &name, float x, float y, float z) const -> void {
+    glUniform3f(glGetUniformLocation(id, name.c_str()), x, y, z);
+}
+auto Shader::set_vec4(const std::string &name, const glm::vec4 &value) const -> void {
+    glUniform4fv(glGetUniformLocation(id, name.c_str()), 1, &value[0]);
+}
+auto Shader::set_vec4(const std::string &name, float x, float y, float z, float w) const -> void {
+    glUniform4f(glGetUniformLocation(id, name.c_str()), x, y, z, w);
 }
 auto Shader::set_mat2(const std::string &name, const glm::mat2 &mat) const -> void {
     glUniformMatrix2fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, &mat[0][0]);

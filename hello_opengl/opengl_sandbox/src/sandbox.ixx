@@ -5,7 +5,7 @@ module;
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <memory>
-#include <stb_image.h>
+// #include <stb_image.h> // Removed texture dependency
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -25,8 +25,13 @@ export namespace opengl_sandbox {
         ~Sandbox() override = default;
 
         void on_init() override {
-            shader_program = std::make_shared<Shader>("./res/shader/first_vert.glsl", "./res/shader/first_frag.glsl");
-            shader_program->use();
+            light_cube_shader =
+                    std::make_shared<Shader>("./res/shader/first_vert.glsl", "./res/shader/first_frag.glsl");
+            light_cube_shader->use();
+
+            light_shader = std::make_shared<Shader>("./res/shader/light_shader_cube_vert.glsl",
+                                                    "./res/shader/light_shader_cube_frag.glsl");
+            light_shader->use();
 
             // Set up vertex data and buffers and configure vertex attributes
             glGenVertexArrays(1, &vertex_array_object);
@@ -37,84 +42,72 @@ export namespace opengl_sandbox {
             glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
             // Position attribute
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(0));
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), reinterpret_cast<void *>(0));
             glEnableVertexAttribArray(0);
 
-            // Texture coord attribute
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
+            // Normal attribute
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
                                   reinterpret_cast<void *>(3 * sizeof(float)));
             glEnableVertexAttribArray(1);
 
-            stbi_set_flip_vertically_on_load(true);
+            glGenVertexArrays(1, &light_vertex_array_object);
+            glBindVertexArray(light_vertex_array_object);
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_object);
 
-            // Texture 1
-            glActiveTexture(GL_TEXTURE0);
-            glGenTextures(1, &texture_1);
-            glBindTexture(GL_TEXTURE_2D, texture_1);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-            if (const auto img_data = load_image("./res/image/oak_planks.png"); img_data.data != nullptr) {
-                const auto format = get_image_format(img_data);
-                glTexImage2D(GL_TEXTURE_2D, 0, format, img_data.width, img_data.height, 0, format, GL_UNSIGNED_BYTE,
-                             img_data.data);
-                glGenerateMipmap(GL_TEXTURE_2D);
-                stbi_image_free(img_data.data);
-            }
-            else {
-                stbi_image_free(img_data.data);
-            }
-
-            shader_program->set_int("texture1", 0);
-            shader_program->set_int("texture2", 0); // Using the same texture for both slots to avoid artifacts
+            // Light VAO only needs position
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), reinterpret_cast<void *>(0));
+            glEnableVertexAttribArray(0);
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
         }
 
         void on_update(double delta_time) override {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, texture_1);
-            // Bind the same texture to unit 1 just in case the shader mixes them
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, texture_1);
+            light_cube_shader->use();
 
-            shader_program->use();
+            light_cube_shader->set_vec3("objectColor", 1.0f, 0.5f, 0.31f);
+            light_cube_shader->set_vec3("lightColor", 1.0f, 1.0f, 1.0f);
+            light_cube_shader->set_vec3("lightPos", light_pos);
+            light_cube_shader->set_vec3("viewPos", camera_pos);
 
             // Projection setup
             glm::mat4 projection = glm::perspective(
                     glm::radians(45.0f),
                     static_cast<float>(window.get_width()) / static_cast<float>(window.get_height()), 0.1f, 100.0f);
-            shader_program->set_mat4("projection", projection);
+            light_cube_shader->set_mat4("projection", projection);
 
             // View setup
             glm::mat4 view = glm::lookAt(camera_pos, camera_pos + camera_front, camera_up);
-            auto view_loc = glGetUniformLocation(shader_program->get_id(), "view");
-            glUniformMatrix4fv(view_loc, 1, GL_FALSE, glm::value_ptr(view));
+            light_cube_shader->set_mat4("view", view);
 
-            auto model_loc = glGetUniformLocation(shader_program->get_id(), "model");
-
-            glBindVertexArray(vertex_array_object);
-
-            // Draw one rotating cube at the center
+            // World transformation
             glm::mat4 model = glm::mat4(1.0f);
-            model = glm::rotate(model, static_cast<float>(SDL_GetTicks()) / 1000.0f * glm::radians(50.0f),
-                                glm::vec3(0.5f, 1.0f, 0.0f));
-            glUniformMatrix4fv(model_loc, 1, GL_FALSE, glm::value_ptr(model));
+            light_cube_shader->set_mat4("model", model);
 
+            // Render object
+            glBindVertexArray(vertex_array_object);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+
+            // Render light source
+            light_shader->use();
+            light_shader->set_mat4("projection", projection);
+            light_shader->set_mat4("view", view);
+
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, light_pos);
+            model = glm::scale(model, glm::vec3(0.2f));
+            light_shader->set_mat4("model", model);
+
+            glBindVertexArray(light_vertex_array_object);
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
 
         auto on_event(const SDL_Event &event) -> SDL_AppResult override {
-            // Camera controls - kept for navigating around the single cube
             const auto handle_key_down = [&]() {
                 if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
                     return SDL_APP_SUCCESS;
                 }
                 const float camera_speed = 0.1f;
-                // Note: Delta time not passed to event, simplified here
                 if (event.key.scancode == SDL_SCANCODE_W) {
                     camera_pos += camera_front * camera_speed;
                 }
@@ -164,15 +157,15 @@ export namespace opengl_sandbox {
         void on_quit() override {
             glDeleteVertexArrays(1, &vertex_array_object);
             glDeleteBuffers(1, &vertex_buffer_object);
-            glDeleteTextures(1, &texture_1);
         }
 
     private:
         Window &window;
-        std::shared_ptr<Shader> shader_program = nullptr;
+        std::shared_ptr<Shader> light_cube_shader = nullptr;
+        std::shared_ptr<Shader> light_shader = nullptr;
         unsigned int vertex_array_object{};
         unsigned int vertex_buffer_object{};
-        unsigned int texture_1{};
+        unsigned int light_vertex_array_object{};
 
         glm::vec3 camera_pos{0.0f, 0.0f, 3.0f};
         glm::vec3 camera_front{0.0f, 0.0f, -1.0f};
@@ -182,23 +175,32 @@ export namespace opengl_sandbox {
         float pitch = 0.0f;
         float sensitivity = 0.1f;
 
+        glm::vec3 light_pos{1.2f, 1.0f, 2.0f};
+
+        // Vertices with normals (6 floats per vertex)
         const std::vector<float> vertices = {
-                -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.5f,  -0.5f, -0.5f, 1.0f, 0.0f, 0.5f,  0.5f,  -0.5f, 1.0f, 1.0f,
-                0.5f,  0.5f,  -0.5f, 1.0f, 1.0f, -0.5f, 0.5f,  -0.5f, 0.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+                -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f, 0.5f,  -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f,
+                0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, 0.5f,  0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f,
+                -0.5f, 0.5f,  -0.5f, 0.0f,  0.0f,  -1.0f, -0.5f, -0.5f, -0.5f, 0.0f,  0.0f,  -1.0f,
 
-                -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, 0.5f,  -0.5f, 0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-                0.5f,  0.5f,  0.5f,  1.0f, 1.0f, -0.5f, 0.5f,  0.5f,  0.0f, 1.0f, -0.5f, -0.5f, 0.5f,  0.0f, 0.0f,
+                -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,  0.5f,  -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,
+                0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+                -0.5f, 0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  -0.5f, -0.5f, 0.5f,  0.0f,  0.0f,  1.0f,
 
-                -0.5f, 0.5f,  0.5f,  1.0f, 0.0f, -0.5f, 0.5f,  -0.5f, 1.0f, 1.0f, -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, -0.5f, 0.5f,  0.5f,  1.0f, 0.0f,
+                -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,  -0.5f, 0.5f,  -0.5f, -1.0f, 0.0f,  0.0f,
+                -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,  -0.5f, -0.5f, -0.5f, -1.0f, 0.0f,  0.0f,
+                -0.5f, -0.5f, 0.5f,  -1.0f, 0.0f,  0.0f,  -0.5f, 0.5f,  0.5f,  -1.0f, 0.0f,  0.0f,
 
-                0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.5f,  0.5f,  -0.5f, 1.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 0.0f, 1.0f,
-                0.5f,  -0.5f, -0.5f, 0.0f, 1.0f, 0.5f,  -0.5f, 0.5f,  0.0f, 0.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+                0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.5f,  0.5f,  -0.5f, 1.0f,  0.0f,  0.0f,
+                0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,  0.5f,  -0.5f, -0.5f, 1.0f,  0.0f,  0.0f,
+                0.5f,  -0.5f, 0.5f,  1.0f,  0.0f,  0.0f,  0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-                -0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.5f,  -0.5f, -0.5f, 1.0f, 1.0f, 0.5f,  -0.5f, 0.5f,  1.0f, 0.0f,
-                0.5f,  -0.5f, 0.5f,  1.0f, 0.0f, -0.5f, -0.5f, 0.5f,  0.0f, 0.0f, -0.5f, -0.5f, -0.5f, 0.0f, 1.0f,
+                -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,  0.5f,  -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,
+                0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  0.5f,  -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,
+                -0.5f, -0.5f, 0.5f,  0.0f,  -1.0f, 0.0f,  -0.5f, -0.5f, -0.5f, 0.0f,  -1.0f, 0.0f,
 
-                -0.5f, 0.5f,  -0.5f, 0.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 1.0f, 1.0f, 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-                0.5f,  0.5f,  0.5f,  1.0f, 0.0f, -0.5f, 0.5f,  0.5f,  0.0f, 0.0f, -0.5f, 0.5f,  -0.5f, 0.0f, 1.0f};
+                -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,  0.5f,  0.5f,  -0.5f, 0.0f,  1.0f,  0.0f,
+                0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+                -0.5f, 0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  -0.5f, 0.5f,  -0.5f, 0.0f,  1.0f,  0.0f};
     };
 } // namespace opengl_sandbox
